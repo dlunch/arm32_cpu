@@ -133,7 +133,7 @@ impl Cpu {
                 let new_flags = build_flags($new_v, $new_c, new_z, new_n);
                 self.reg[reg::CPSR] = self.reg[reg::CPSR].set_bit(28, 4, new_flags);
             };
-        };
+        }
 
         use self::Instruction::*;
         match inst_type {
