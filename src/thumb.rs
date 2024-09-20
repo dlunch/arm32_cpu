@@ -256,7 +256,7 @@ impl Cpu {
                         set_flags!(res, new_v, new_c);
                     },
                     2 /* MOV */ => self.reg[crd] = vals,
-                    3 /* BX */ => {
+                    3 /* BX or BLX */ => {
                         let new_t = vals.get_bit( 0);
                         let mask: u32 = if new_t == 0 { !3 } else { !1 };
 
@@ -264,6 +264,9 @@ impl Cpu {
 
                         let cpsr_mask = 1 << cpsr::T;
                         self.reg[reg::CPSR] = (cpsr & !cpsr_mask) | (new_t << cpsr::T);
+                        if hd == 1 {
+                            self.reg[reg::LR] = pc.wrapping_add(2) | 1;
+                        }
                     },
                     _ => unreachable!(),
                 };
@@ -432,7 +435,16 @@ impl Cpu {
                         let val = self.reg[reg];
                         mmu.w32(idx_addr, val);
                     } else {
-                        self.reg[reg] = mmu.r32(idx_addr) & if reg == reg::PC { !1 } else { !0 };
+                        let val = mmu.r32(idx_addr);
+                        self.reg[reg] = val;
+
+                        if reg == reg::PC {
+                            // change mode
+                            let new_t = val.get_bit(0);
+                            let mask = 1 << cpsr::T;
+                            self.reg[reg::CPSR] = (cpsr & !mask) | (new_t << cpsr::T);
+                            self.reg[reg::PC] = val & !1;
+                        }
                     }
 
                     rem -= 1 << reg;
@@ -591,4 +603,5 @@ mod test {
     emutest!(emutest_thm6, [(0x1fc, 0)]);
     emutest!(emutest_thm7, [(0x1fc, 0xff)]);
     emutest!(emutest_thm8, [(0x1fc, 0x0123_4567)]);
+    emutest!(emutest_thm9, [(0x200, 11), (0x204, 22)]);
 }

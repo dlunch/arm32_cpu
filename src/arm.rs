@@ -144,15 +144,27 @@ impl Cpu {
                 self.reg[reg::CPSR] |= new_pc.get_bit(0) << cpsr::T;
             }
             Branch => {
-                let l = inst.get_bit(24);
-
                 let offset = inst.extract(0, 24);
                 // Shift up to sign extend
                 // shift right by 6 (instead of 8) to multiply by 4
                 let s_offset = ((offset << 8) as i32 >> 6) as u32;
-                self.reg[reg::PC] = pc.wrapping_add(s_offset).wrapping_add(8);
-                if l != 0 {
+
+                if cond == 0b1111 {
+                    // blx
+                    let h = inst.get_bit(24);
+
+                    let s_offset = s_offset | (h << 1);
+
+                    self.reg[reg::PC] = pc.wrapping_add(s_offset).wrapping_add(8);
                     self.reg[reg::LR] = pc.wrapping_add(4);
+                    self.reg[reg::CPSR] |= 1 << cpsr::T;
+                } else {
+                    let l = inst.get_bit(24);
+
+                    self.reg[reg::PC] = pc.wrapping_add(s_offset).wrapping_add(8);
+                    if l != 0 {
+                        self.reg[reg::LR] = pc.wrapping_add(4);
+                    }
                 }
             }
             DataProc0 | DataProc1 | DataProc2 => {
@@ -697,4 +709,5 @@ mod test {
     );
     emutest!(emutest_arm7, [(0x1fc, 1), (0x200, 1), (0x204, 0x200)]);
     emutest!(emutest_arm8, [(0x200, 10), (0x204, 83)]);
+    emutest!(emutest_arm9, [(0x200, 55), (0x204, 66), (0x208, 77)]);
 }

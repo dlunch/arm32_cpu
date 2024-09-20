@@ -3,7 +3,7 @@
 //! ## Example
 //!
 //! ```
-//! use armv4t_emu::{reg, Cpu, ExampleMem, Mode, Memory};
+//! use arm32_cpu::{reg, Cpu, ExampleMem, Mode, Memory};
 //!
 //! let prog = &[
 //!     0x06, 0x00, 0xa0, 0xe3, //    mov r0, #6

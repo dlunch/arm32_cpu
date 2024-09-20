@@ -10,7 +10,7 @@ arm-all: $(ARM_BINS)
 thm-all: $(THM_BINS)
 
 emutest_arm%.bin: emutest_arm%.S
-	arm-none-eabi-as -mcpu=arm7tdmi $<
+	arm-none-eabi-as -mcpu=arm9e $<
 	data=$$(arm-none-eabi-objdump -h a.out | grep ".text" | awk '{ print $$3, $$6; }'); \
 		 len=$$(python -c "print(0x$$(echo $${data} | cut -f 1 -d ' '))"); \
 		 offset=$$(python -c "print(0x$$(echo $${data} | cut -f 2 -d ' '))"); \
@@ -21,7 +21,7 @@ emutest_arm%.bin: emutest_arm%.S
 	-rm a.out
 
 emutest_thm%.bin: emutest_thm%.S
-	arm-none-eabi-as -mcpu=arm7tdmi $<
+	arm-none-eabi-as -mcpu=arm9e $<
 	data=$$(arm-none-eabi-objdump -h a.out | grep ".text" | awk '{ print $$3, $$6; }'); \
 		 len=$$(python -c "print(0x$$(echo $${data} | cut -f 1 -d ' '))"); \
 		 offset=$$(python -c "print(0x$$(echo $${data} | cut -f 2 -d ' '))"); \
