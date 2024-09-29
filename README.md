@@ -1,18 +1,15 @@
-# armv4t_emu
-
+# arm32_cpu
+<!--
 [![](http://meritbadge.herokuapp.com/armv4t_emu)](https://crates.io/crates/armv4t_emu)
 [![](https://docs.rs/armv4t_emu/badge.svg)](https://docs.rs/armv4t_emu)
+-->
 
-An emulator for the ARMv4T instruction set, written in Rust.
-
-Initially written as part of [iburinoc's Gameboy Advance emulator](https://github.com/iburinoc/gba-rs), armv4t_emu is now a standalone library that's ready to be used in any project that might need it!
-
-At the moment, the crate is _almost_ feature complete, and is capable of running large programs (ostensibly) successfully. See the issue tracker for a list of missing / incomplete features.
+An emulator for the ARM32 instruction set, written in Rust.
 
 ## Example
 
 ```rust
-use armv4t_emu::{reg, Cpu, ExampleMem, Mode, Memory};
+use arm32_cpu::{reg, Cpu, ExampleMem, Mode, Memory};
 
 let prog = &[
     0x06, 0x00, 0xa0, 0xe3, //    mov r0, #6
