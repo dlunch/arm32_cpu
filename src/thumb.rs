@@ -248,11 +248,12 @@ impl Cpu {
                 let crd = ((hd * 8) as Reg) + rd;
 
                 let vals = self.reg[crs].wrapping_add(((crs == reg::PC) as u32) * 2);
+                let vald = self.reg[crd].wrapping_add(((crd == reg::PC) as u32) * 2);
 
                 match op {
-                    0 /* ADD */ => self.reg[crd] = self.reg[crd].wrapping_add(vals),
+                    0 /* ADD */ => self.reg[crd] = vald.wrapping_add(vals),
                     1 /* CMP */ => {
-                        let (res, new_v, new_c) = self.reg[crd].sub_flags( vals, 0);
+                        let (res, new_v, new_c) = vald.sub_flags(vals, 0);
                         set_flags!(res, new_v, new_c);
                     },
                     2 /* MOV */ => self.reg[crd] = vals,
@@ -522,6 +523,7 @@ impl Cpu {
 #[cfg(test)]
 mod test {
     use super::*;
+
     #[test]
     #[rustfmt::skip]
     fn test_decode() {
@@ -604,4 +606,5 @@ mod test {
     emutest!(emutest_thm7, [(0x1fc, 0xff)]);
     emutest!(emutest_thm8, [(0x1fc, 0x0123_4567)]);
     emutest!(emutest_thm9, [(0x200, 11), (0x204, 22)]);
+    emutest!(emutest_thm10, [(0x1fc, 0x55)]);
 }
