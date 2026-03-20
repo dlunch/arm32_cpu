@@ -501,16 +501,24 @@ impl Cpu {
                 self.reg[reg::PC] = pc.wrapping_add(4).wrapping_add(offset);
             }
             LongBranch => {
-                let h = inst.get_bit(11);
-                let offset = inst.extract(0, 11);
+                let inst2 = mmu.r16(pc.wrapping_add(2)) as u32;
+                let offset_hi = inst.extract(0, 11);
+                let offset_lo = inst2.extract(0, 11);
+                let lr = pc
+                    .wrapping_add(4)
+                    .wrapping_add((offset_hi << 12).sign_extend(23));
 
-                if h == 0 {
-                    self.reg[reg::LR] = pc
-                        .wrapping_add(4)
-                        .wrapping_add((offset << 12).sign_extend(23));
+                if inst2.mask_match(0xf800, 0xf800) {
+                    self.reg[reg::PC] = lr.wrapping_add(offset_lo << 1);
+                    self.reg[reg::LR] = pc.wrapping_add(4) | 1;
+                } else if inst2.mask_match(0xf801, 0xe800) {
+                    self.reg[reg::PC] = lr.wrapping_add(offset_lo << 1) & !3;
+                    self.reg[reg::LR] = pc.wrapping_add(4) | 1;
+
+                    let mask = 1 << cpsr::T;
+                    self.reg[reg::CPSR] &= !mask;
                 } else {
-                    self.reg[reg::PC] = self.reg[reg::LR].wrapping_add(offset << 1);
-                    self.reg[reg::LR] = pc.wrapping_add(2) | 1;
+                    return false;
                 }
             }
             Undefined => return false,
@@ -523,6 +531,7 @@ impl Cpu {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::{ExampleMem, Mode};
 
     #[test]
     #[rustfmt::skip]
@@ -559,8 +568,6 @@ mod test {
         ($name:ident, $mem_checks: expr) => {
             #[test]
             fn $name() {
-                use crate::{ExampleMem, Mode};
-
                 let prog = include_bytes!(concat!("../tests/data/", stringify!($name), ".bin"));
                 let mut mmu = ExampleMem::new_with_data(prog);
                 let mut cpu = Cpu::new();
@@ -607,4 +614,5 @@ mod test {
     emutest!(emutest_thm8, [(0x1fc, 0x0123_4567)]);
     emutest!(emutest_thm9, [(0x200, 11), (0x204, 22)]);
     emutest!(emutest_thm10, [(0x1fc, 0x55)]);
+    emutest!(emutest_thm11, [(0x200, 11), (0x204, 22)]);
 }

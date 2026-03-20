@@ -1,4 +1,4 @@
-//! An emulator for the ARMv4T instruction set.
+//! An emulator for ARM32 CPUs with ARMv5-era ARM/Thumb support.
 //!
 //! ## Example
 //!
@@ -97,7 +97,7 @@ pub trait Memory {
     fn w32(&mut self, addr: u32, val: u32);
 }
 
-/// An emulated CPU which implements the ARMv4T instruction set.
+/// An emulated CPU with ARMv5-era ARM/Thumb support.
 #[derive(Copy, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Cpu {
@@ -122,7 +122,7 @@ impl Default for Cpu {
 }
 
 impl Cpu {
-    /// Construct a new ARMv4T `Cpu`, with registers set to default "cold-boot"
+    /// Construct a new `Cpu`, with registers set to default "cold-boot"
     /// values.
     ///
     /// Specifically, `PC` is set to `0x00000000`, and `CPSR` is set to `0xd3`

@@ -4,7 +4,7 @@
 [![](https://docs.rs/armv4t_emu/badge.svg)](https://docs.rs/armv4t_emu)
 -->
 
-An emulator for the ARM32 instruction set, written in Rust.
+An emulator for ARM32 CPUs with ARMv5-era ARM/Thumb support, written in Rust.
 
 ## Example
 
@@ -44,10 +44,10 @@ Feature | Description
 
 ## Missing Features
 
-At the moment, this crate's feature set is primarily motivated by whatever functionality it's dependent projects require. As such, there are several features of the ARMv4T instruction set which are not implemented at this time:
+At the moment, this crate's feature set is primarily motivated by whatever functionality its dependent projects require. It targets an ARMv5-era subset rather than full architecture coverage, and several pieces are still intentionally missing:
 
 - Custom co-processor support (see [#3](https://github.com/daniel5151/armv4t_emu/issues/3))
-- Big-Endian support (see [#4](https://github.com/daniel5151/armv4t_emu/issues/4))
-- Support for "cycle accurate" emulation
-    - This would be tricky to implement, as `armv4t_emu` isn't an emulator for any particular ARMv4T CPU.
+- Big-endian support (see [#4](https://github.com/daniel5151/armv4t_emu/issues/4))
+- Support for cycle-accurate emulation
+    - This would be tricky to implement, as `arm32_cpu` is not an emulator for any particular ARM core.
     - Theoretically, this could be implemented by modifying the public API to accept some kind of platform-specific timing information.

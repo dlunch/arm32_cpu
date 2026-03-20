@@ -1,4 +1,4 @@
-/// An ARMv4T processor mode.
+/// An ARM processor mode.
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum Mode {
     User,

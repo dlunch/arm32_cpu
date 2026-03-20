@@ -1,6 +1,6 @@
 use crate::mode::Mode;
 
-/// An ARMv4T processor exception.
+/// An ARM processor exception.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Exception {
     Reset,
