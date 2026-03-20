@@ -12,6 +12,7 @@ use crate::{Cpu, Memory};
 enum Instruction {
     BranchEx, // Branch and exchange (i.e. switch to THUMB)
     Branch,
+    Clz,
     DataProc0,
     DataProc1,
     DataProc2,
@@ -30,9 +31,10 @@ enum Instruction {
     Undefined,
 }
 
-const INST_MATCH_ORDER: [Instruction; 18] = [
+const INST_MATCH_ORDER: [Instruction; 19] = [
     Instruction::Branch,
     Instruction::BranchEx,
+    Instruction::Clz,
     Instruction::Swap,
     Instruction::PsrImm,
     Instruction::PsrReg,
@@ -59,6 +61,7 @@ impl Instruction {
         match self {
             BranchEx    => (0x0fff_fff0, 0x012f_ff10),
             Branch      => (0x0e00_0000, 0x0a00_0000),
+            Clz         => (0x0fff_0ff0, 0x016f_0f10),
             DataProc0   => (0x0e00_0010, 0x0000_0000),
             DataProc1   => (0x0e00_0090, 0x0000_0010),
             DataProc2   => (0x0e00_0000, 0x0200_0000),
@@ -166,6 +169,16 @@ impl Cpu {
                         self.reg[reg::LR] = pc.wrapping_add(4);
                     }
                 }
+            }
+            Clz => {
+                let rm = inst.extract(0, 4) as Reg;
+                let rd = inst.extract(12, 4) as Reg;
+
+                if rm == reg::PC || rd == reg::PC {
+                    return false;
+                }
+
+                self.reg[rd] = self.reg[rm].leading_zeros();
             }
             DataProc0 | DataProc1 | DataProc2 => {
                 let i = inst.get_bit(25);
@@ -637,6 +650,7 @@ mod test {
         );
         check!(BranchEx,    0xE12F_FF1C);
         check!(Branch,      0xEB00_00F8);
+        check!(Clz,         0xE16F_6F12);
         check!(DataProc0,   0xE1A0_816C);
         check!(DataProc1,   0xE092_3011);
         check!(DataProc1,   0xC092_3011);
@@ -710,4 +724,5 @@ mod test {
     emutest!(emutest_arm7, [(0x1fc, 1), (0x200, 1), (0x204, 0x200)]);
     emutest!(emutest_arm8, [(0x200, 10), (0x204, 83)]);
     emutest!(emutest_arm9, [(0x200, 55), (0x204, 66), (0x208, 77)]);
+    emutest!(emutest_arm10, [(0x100, 24)]);
 }
