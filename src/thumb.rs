@@ -28,10 +28,11 @@ enum Instruction {
     SoftwareInt,
     Branch,
     LongBranch,
+    Nop,
     Undefined,
 }
 
-const INST_MATCH_ORDER: [Instruction; 20] = [
+const INST_MATCH_ORDER: [Instruction; 21] = [
     Instruction::Branch,
     Instruction::AddSub,
     Instruction::AluOp,
@@ -51,6 +52,7 @@ const INST_MATCH_ORDER: [Instruction; 20] = [
     Instruction::SoftwareInt,
     Instruction::CondBranch,
     Instruction::LongBranch,
+    Instruction::Nop,
     Instruction::Undefined,
 ];
 
@@ -79,6 +81,7 @@ impl Instruction {
             SoftwareInt => (0xff00, 0xdf00),
             Branch      => (0xf800, 0xe000),
             LongBranch  => (0xf000, 0xf000),
+            Nop         => (0xffff, 0xbf00),
             Undefined   => (0x0000, 0x0000),
         }
     }
@@ -521,6 +524,7 @@ impl Cpu {
                     return false;
                 }
             }
+            Nop => {}
             Undefined => return false,
         };
 
@@ -561,7 +565,24 @@ mod test {
         check!(CondBranch,  0xd1fb);
         check!(Branch,      0xe002);
         check!(LongBranch,  0xf801);
+        check!(Nop,          0xbf00);
         check!(Undefined,   0xe800);
+    }
+
+    #[test]
+    fn nop_hint() {
+        let mut mmu = ExampleMem::new_with_data(&[0x00, 0xbf]);
+        let mut cpu = Cpu::new();
+
+        cpu.reg_set(Mode::User, reg::PC, 0x00);
+        cpu.reg_set(
+            Mode::User,
+            reg::CPSR,
+            (0xd3 & !(1 << cpsr::T)) | (1 << cpsr::T),
+        );
+
+        assert!(cpu.step(&mut mmu));
+        assert_eq!(cpu.reg_get(Mode::User, reg::PC), 0x02);
     }
 
     macro_rules! emutest {
