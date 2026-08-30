@@ -1,10 +1,11 @@
 # arm32_cpu
-<!--
-[![](http://meritbadge.herokuapp.com/armv4t_emu)](https://crates.io/crates/armv4t_emu)
-[![](https://docs.rs/armv4t_emu/badge.svg)](https://docs.rs/armv4t_emu)
--->
+[![crates.io](https://img.shields.io/crates/v/arm32_cpu.svg)](https://crates.io/crates/arm32_cpu)
+[![docs.rs](https://docs.rs/arm32_cpu/badge.svg)](https://docs.rs/arm32_cpu)
 
 An emulator for ARM32 CPUs with ARMv5-era ARM/Thumb support, written in Rust.
+
+This project is a fork of [`armv4t_emu`](https://github.com/daniel5151/armv4t_emu),
+extended to support ARMv5 instructions in addition to ARMv4T.
 
 ## Example
 

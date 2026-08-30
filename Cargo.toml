@@ -1,6 +1,6 @@
 [package]
 name = "arm32_cpu"
-description = "An emulator for the ARM32 cpu"
+description = "An ARM32 emulator with ARMv4T and ARMv5 ARM/Thumb instruction support"
 authors = ["Sean Purcell <me@seanp.xyz>", "Daniel Prilik <danielprilik@gmail.com>", "Inseok Lee <me@dlun.ch>"]
 version = "0.1.0"
 license = "MIT"
@@ -9,7 +9,7 @@ readme = "README.md"
 documentation = "https://docs.rs/arm32_cpu"
 homepage = "https://github.com/dlunch/arm32_cpu"
 repository = "https://github.com/dlunch/arm32_cpu"
-keywords = ["emulator", "emulation", "arm"]
+keywords = ["emulator", "emulation", "arm", "armv4t", "armv5"]
 categories = ["emulators"]
 
 [features]
