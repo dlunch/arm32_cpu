@@ -2,7 +2,7 @@
 name = "arm32_cpu"
 description = "An ARM32 emulator with ARMv4T and ARMv5 ARM/Thumb instruction support"
 authors = ["Sean Purcell <me@seanp.xyz>", "Daniel Prilik <danielprilik@gmail.com>", "Inseok Lee <me@dlun.ch>"]
-version = "0.1.0"
+version = "0.1.1"
 license = "MIT"
 edition = "2018"
 readme = "README.md"

@@ -221,7 +221,11 @@ impl Cpu {
                 } else {
                     let shift = inst.extract(8, 4) * 2;
                     let imm = inst.extract(0, 8);
-                    imm.shift_ror(shift)
+                    if shift == 0 {
+                        (imm, c)
+                    } else {
+                        imm.shift_ror(shift)
+                    }
                 };
 
                 let valn = self.reg[rn].wrapping_add(if rn == reg::PC {
