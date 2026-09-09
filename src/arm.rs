@@ -771,4 +771,245 @@ mod test {
     emutest!(emutest_arm8, [(0x200, 10), (0x204, 83)]);
     emutest!(emutest_arm9, [(0x200, 55), (0x204, 66), (0x208, 77)]);
     emutest!(emutest_arm10, [(0x100, 24)]);
+
+    emutest!(emutest_arm11, {
+        let mut values = Vec::new();
+        for &(rm, rs, rn, product, accumulated) in &[
+            (0u32, 1, 0, 0, 0),
+            (3, 7, 11, 21, 32),
+            (0x8000_0000, 1, 1, 0x8000_0000, 0x8000_0001),
+            (0xffff_ffff, 2, 2, 0xffff_fffe, 0),
+            (0x8000_0000, 2, 9, 0, 9),
+        ] {
+            for destination in 0..4 {
+                for accumulate in [false, true].iter().copied() {
+                    for set_flags in [false, true].iter().copied() {
+                        for flags in 0..16 {
+                            let result = if accumulate { accumulated } else { product };
+                            let cpsr = (flags << 28) | 0x10;
+                            let mut registers = [rm, rs, rn, 0xdead_beef];
+                            registers[destination] = result;
+                            values.extend_from_slice(&registers);
+                            values.push(if set_flags {
+                                (cpsr & 0x3fff_ffff)
+                                    | (result & 0x8000_0000)
+                                    | (u32::from(result == 0) << 30)
+                            } else {
+                                cpsr
+                            });
+                        }
+                    }
+                }
+            }
+        }
+        for _ in 0..6 {
+            values.extend_from_slice(&[3, 7, 11, 13, 0xb000_0010]);
+        }
+        values
+            .into_iter()
+            .enumerate()
+            .map(|(index, value)| (0x100000 + index as u32 * 4, value))
+            .collect::<Vec<_>>()
+    });
+    emutest!(emutest_arm12, {
+        let mut values = Vec::new();
+        for &(rm, rs, result) in &[
+            (0u32, 1, 0u64),
+            (0xffff_ffff, 0xffff_ffff, 0xffff_fffe_0000_0001),
+            (0xffff_ffff, 2, 0xffff_ffff_ffff_fffe),
+            (0x8000_0000, 0x8000_0000, 0x4000_0000_0000_0000),
+            (1, 1, 0),
+            (1, 1, 0x8000_0000_0000_0000),
+            (0xffff_ffff, 2, 0),
+            (0xffff_ffff, 2, 0xffff_ffff_ffff_ffff),
+        ] {
+            for set_flags in [false, true].iter().copied() {
+                for flags in 0..16 {
+                    let cpsr = (flags << 28) | 0x10;
+                    values.extend_from_slice(&[rm, rs, result as u32, (result >> 32) as u32]);
+                    values.push(if set_flags {
+                        (cpsr & 0x3fff_ffff)
+                            | ((result >> 32) as u32 & 0x8000_0000)
+                            | (u32::from(result == 0) << 30)
+                    } else {
+                        cpsr
+                    });
+                }
+            }
+        }
+        for &(low, high) in &[(21, 0), (24, 7), (21, 0), (24, 7)] {
+            values.extend_from_slice(&[low, high, 0x3000_0010]);
+        }
+        values
+            .into_iter()
+            .enumerate()
+            .map(|(index, value)| (0x100000 + index as u32 * 4, value))
+            .collect::<Vec<_>>()
+    });
+    emutest!(emutest_arm13, {
+        let mut values = Vec::new();
+        for operation in 0..8 {
+            for immediate in [2u32, 0x8000_0000, 0x2000_0000].iter().copied() {
+                for carry in 0..=1 {
+                    let result = match operation {
+                        0 | 2 => 0x1234_5678 & immediate,
+                        1 | 3 => 0x1234_5678 ^ immediate,
+                        4 => 0x1234_5678 | immediate,
+                        5 => immediate,
+                        6 => 0x1234_5678 & !immediate,
+                        _ => !immediate,
+                    };
+                    let carry = if immediate == 2 {
+                        carry
+                    } else {
+                        immediate >> 31
+                    };
+                    values.extend_from_slice(&[
+                        0x1234_5678,
+                        if operation == 2 || operation == 3 {
+                            0x55
+                        } else {
+                            result
+                        },
+                        0x1000_0010
+                            | (result & 0x8000_0000)
+                            | (u32::from(result == 0) << 30)
+                            | (carry << 29),
+                    ]);
+                }
+            }
+        }
+        values
+            .into_iter()
+            .enumerate()
+            .map(|(index, value)| (0x100000 + index as u32 * 4, value))
+            .collect::<Vec<_>>()
+    });
+    emutest!(emutest_arm14, {
+        let mut values = Vec::new();
+        for _link in 0..2 {
+            for _operand in 0..2 {
+                for &(target, pc) in &[(0x4000, 0x4008), (0x5001, 0x5004), (0x5003, 0x5006)] {
+                    for _wrapped in 0..2 {
+                        values.extend_from_slice(&[target, 0x11, pc, 0x33, 0xb000_0010, 0]);
+                    }
+                }
+            }
+        }
+        for &base in &[0x80000, 0x7fff8, 0x80008, 0x80008, 0x80000, 0x80000] {
+            for &pc in &[0x4008, 0x5004, 0x5006] {
+                values.extend_from_slice(&[base, 2, pc, 0x33, 0xb000_0010, 0]);
+            }
+        }
+        for &writeback_base in &[0x8000c, 0x8000c, 0x7fff4, 0x7fff4] {
+            for &base in &[0x80000, writeback_base] {
+                for &pc in &[0x4008, 0x5004, 0x5006] {
+                    values.extend_from_slice(&[base, 0x1234_5678, pc, 0x9876_5432, 0xb000_0010, 0]);
+                }
+            }
+        }
+        values.extend_from_slice(&[0xdead_beef, 0x11, 0x5006, 0x33, 0xb000_0010, 0]);
+        for _ in 0..6 {
+            values.extend_from_slice(&[0x80000, 2, 0x22, 0x33, 0xb000_0010, 0x7000]);
+        }
+        values.extend_from_slice(&[41, 0xb000_0010]);
+        values
+            .into_iter()
+            .enumerate()
+            .map(|(index, value)| (0x100000 + index as u32 * 4, value))
+            .collect::<Vec<_>>()
+    });
+    emutest!(emutest_arm15, {
+        let mut values = Vec::new();
+        for flags in 0..16 {
+            for _ in 0..7 {
+                values.extend_from_slice(&[0xffff_fff8, 0xffff_ffff, (flags << 28) | 0x10]);
+            }
+        }
+        values
+            .into_iter()
+            .enumerate()
+            .map(|(index, value)| (0x100000 + index as u32 * 4, value))
+            .collect::<Vec<_>>()
+    });
+    emutest!(emutest_arm16, {
+        let mut values = Vec::new();
+        for addressing in 0..6 {
+            for up in [false, true].iter().copied() {
+                for store in [false, true].iter().copied() {
+                    for passed in [false, true].iter().copied() {
+                        let registers = if passed && !store {
+                            [0x1234_5678, 0x9abc_def0]
+                        } else {
+                            [0x1122_3344, 0x5566_7788]
+                        };
+                        values.extend_from_slice(&registers);
+                        values.push(if passed && addressing >= 2 {
+                            if up {
+                                0x80018
+                            } else {
+                                0x7ffe8
+                            }
+                        } else {
+                            0x80000
+                        });
+                        values.push(if passed { 0xf000_0010 } else { 0xb000_0010 });
+                        values.extend_from_slice(if passed && store {
+                            &[0x1122_3344, 0x5566_7788]
+                        } else {
+                            &[0x1234_5678, 0x9abc_def0]
+                        });
+                    }
+                }
+            }
+        }
+        values
+            .into_iter()
+            .enumerate()
+            .map(|(index, value)| (0x100000 + index as u32 * 4, value))
+            .collect::<Vec<_>>()
+    });
+    emutest!(emutest_arm17, {
+        let mut values = Vec::new();
+        for _ in 0..2 {
+            values.extend_from_slice(&[
+                0x1122_3344,
+                0x5566_7788,
+                0x80000,
+                0xb000_0010,
+                0x1122_3344,
+                0x5566_7788,
+            ]);
+        }
+        for &(low, high, base) in &[
+            (0x80000, 0x5566_7788, 0x80000),
+            (0x1122_3344, 0x80000, 0x80000),
+            (0x18, 0x5566_7788, 0x80018),
+            (0x1122_3344, 0x18, 0x80018),
+        ] {
+            values.extend_from_slice(&[low, high, base, 0xb000_0010, low, high]);
+        }
+        for &base in &[0x80000, 0x80000, 0, 0, 0] {
+            for &(low, high) in &[(0x1122_3344, 0x5566_7788), (0x9abc_def0, 0x1234_5678)] {
+                values.extend_from_slice(&[low, high, base, 0xb000_0010, low, high]);
+            }
+        }
+        values
+            .into_iter()
+            .enumerate()
+            .map(|(index, value)| (0x100000 + index as u32 * 4, value))
+            .collect::<Vec<_>>()
+    });
+    emutest!(emutest_arm18, {
+        let mut values = Vec::new();
+        for &value in &[0x80, 0x80, 0xff80, 0xffff_ff80, 0xffff_ff80] {
+            values.extend_from_slice(&[0x80000, value, 0xb000_0010, 0x1234_ff80]);
+        }
+        values.extend_from_slice(&[0x80002, 0x1234_ff80, 0xb000_0010, 0xff80_0000]);
+        values
+            .into_iter()
+            .enumerate()
+            .map(|(index, value)| (0x100000 + index as u32 * 4, value))
+            .collect::<Vec<_>>()
+    });
 }

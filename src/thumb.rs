@@ -636,4 +636,38 @@ mod test {
     emutest!(emutest_thm9, [(0x200, 11), (0x204, 22)]);
     emutest!(emutest_thm10, [(0x1fc, 0x55)]);
     emutest!(emutest_thm11, [(0x200, 11), (0x204, 22)]);
+    emutest!(emutest_thm12, {
+        let mut values = Vec::new();
+        for &(result, source) in &[(0u32, 1), (21, 7), (0xffff_fffe, 2), (0, 2), (9, 7)] {
+            for flags in 0..16 {
+                // CPSR is captured after returning to ARM without changing NZCV.
+                values.extend_from_slice(&[
+                    result,
+                    source,
+                    ((flags & 3) << 28)
+                        | 0x10
+                        | (result & 0x8000_0000)
+                        | (u32::from(result == 0) << 30),
+                ]);
+            }
+        }
+        values
+            .into_iter()
+            .enumerate()
+            .map(|(index, value)| (0x100000 + index as u32 * 4, value))
+            .collect::<Vec<_>>()
+    });
+    emutest!(
+        emutest_thm13,
+        [
+            (0x100000, 11),
+            (0x100004, 0x105),
+            (0x100008, 22),
+            (0x10000c, 0x109),
+            (0x100010, 0x3000_0010),
+            (0x100014, 33),
+            (0x100018, 44),
+            (0x10001c, 0x320),
+        ]
+    );
 }
