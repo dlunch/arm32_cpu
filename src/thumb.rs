@@ -227,7 +227,7 @@ impl Cpu {
                     0xA /* CMP */ => vald.sub_flags(vals, 0),
                     0xB /* CMN */ => vald.add_flags(vals, 0),
                     0xC /* ORR */ => (vald | vals, v, c),
-                    0xD /* MUL */ => (vald.wrapping_mul(vals), v, 0),
+                    0xD /* MUL */ => (vald.wrapping_mul(vals), v, c),
                     0xE /* BIC */ => (vald & !vals, v, c),
                     0xF /* MVN */ => (!vals, v, c),
                     _ => unreachable!(),

@@ -10,7 +10,7 @@ use crate::{Cpu, Memory};
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 enum Instruction {
-    BranchEx, // Branch and exchange (i.e. switch to THUMB)
+    BranchEx, // Branch and exchange, optionally with link
     Branch,
     Clz,
     DataProc0,
@@ -22,8 +22,8 @@ enum Instruction {
     MulLong,
     SingleXferI, // Single data transfer, immediate offset
     SingleXferR, // Single data transfer, register offset
-    HwSgnXferR,  // Halfword and signed, register offset
-    HwSgnXferI,  // Halfword and signed, immediate offset
+    HwSgnXferR,  // Halfword, signed and doubleword, register offset
+    HwSgnXferI,  // Halfword, signed and doubleword, immediate offset
     BlockXfer,
     Swap,
     SoftwareInt,
@@ -59,7 +59,7 @@ impl Instruction {
     fn pattern(self) -> (u32, u32) {
         use self::Instruction::*;
         match self {
-            BranchEx    => (0x0fff_fff0, 0x012f_ff10),
+            BranchEx    => (0x0fff_ffd0, 0x012f_ff10),
             Branch      => (0x0e00_0000, 0x0a00_0000),
             Clz         => (0x0fff_0ff0, 0x016f_0f10),
             DataProc0   => (0x0e00_0010, 0x0000_0000),
@@ -141,10 +141,16 @@ impl Cpu {
         match inst_type {
             BranchEx => {
                 let rn = inst.extract(0, 4) as Reg;
-                let new_pc = self.reg[rn];
-                self.reg[reg::PC] = self.reg[rn] & !1u32;
-                // maybe switch to thumb mode
-                self.reg[reg::CPSR] |= new_pc.get_bit(0) << cpsr::T;
+                let link = inst.get_bit(5);
+                if link == 1 && rn == reg::PC {
+                    return false;
+                }
+                let new_pc = self.reg[rn].wrapping_add(((rn == reg::PC) as u32) * 4);
+                if link == 1 {
+                    self.reg[reg::LR] = pc.wrapping_add(4);
+                }
+                self.reg[reg::PC] = new_pc & !1u32;
+                self.reg[reg::CPSR] = cpsr.set_bit(cpsr::T, 1, new_pc.get_bit(0));
             }
             Branch => {
                 let offset = inst.extract(0, 24);
@@ -324,12 +330,10 @@ impl Cpu {
                 self.reg[rd] = res;
 
                 if s == 1 {
-                    let v = cpsr.get_bit(cpsr::V);
                     let new_z = (res == 0) as u32;
                     let new_n = res.get_bit(31);
-                    let new_flags = build_flags(v, 0, new_z, new_n);
 
-                    self.reg[reg::CPSR] = self.reg[reg::CPSR].set_bit(28, 4, new_flags);
+                    self.reg[reg::CPSR] = self.reg[reg::CPSR].set_bit(30, 2, new_z | (new_n << 1));
                 }
             }
             MulLong => {
@@ -371,12 +375,15 @@ impl Cpu {
                 if s != 0 {
                     let new_z = (res == 0) as u32;
                     let new_n = reshi.get_bit(31);
-                    let new_flags = build_flags(0, 0, new_z, new_n);
 
-                    self.reg[reg::CPSR] = self.reg[reg::CPSR].set_bit(28, 4, new_flags);
+                    self.reg[reg::CPSR] = self.reg[reg::CPSR].set_bit(30, 2, new_z | (new_n << 1));
                 }
             }
             SingleXferI | SingleXferR => {
+                // PLD is an unconditional hint, with no data memory access.
+                if inst.mask_match(0xfd70_f000, 0xf550_f000) {
+                    return true;
+                }
                 let p = inst.get_bit(24);
                 let u = inst.get_bit(23);
                 let b = inst.get_bit(22);
@@ -430,6 +437,10 @@ impl Cpu {
                     } else {
                         mmu.r8(addr) as u32
                     };
+                    if rd == reg::PC && b == 0 {
+                        self.reg[reg::CPSR] = cpsr.set_bit(cpsr::T, 1, self.reg[rd].get_bit(0));
+                        self.reg[rd] &= !1;
+                    }
                 };
 
                 // post-indexing implies writeback
@@ -451,8 +462,8 @@ impl Cpu {
                 let rd = inst.extract(12, 4) as Reg;
 
                 let offset = if inst_type == HwSgnXferR {
-                    let rn = inst.extract(0, 4) as Reg;
-                    self.reg[rn]
+                    let rm = inst.extract(0, 4) as Reg;
+                    self.reg[rm]
                 } else {
                     (inst.extract(8, 4) << 4) | inst.extract(0, 4)
                 };
@@ -466,7 +477,34 @@ impl Cpu {
 
                 let addr = if p == 0 { base } else { post_addr };
 
-                if l == 0 {
+                if l == 0 && s == 1 {
+                    // ARMv5TE LDRD/STRD share mode 3; H selects load/store.
+                    let writeback = p == 0 || w == 1;
+                    if rd & 1 != 0
+                        || rd == reg::LR
+                        || addr & 7 != 0
+                        || (p == 0 && w == 1)
+                        || (writeback && (rn == reg::PC || rn == rd || rn == rd + 1))
+                    {
+                        return false;
+                    }
+                    if inst_type == HwSgnXferR {
+                        let rm = inst.extract(0, 4) as Reg;
+                        if rm == reg::PC
+                            || (writeback && rm == rn)
+                            || (h == 0 && (rm == rd || rm == rd + 1))
+                        {
+                            return false;
+                        }
+                    }
+                    if h == 0 {
+                        self.reg[rd] = mmu.r32(addr);
+                        self.reg[rd + 1] = mmu.r32(addr.wrapping_add(4));
+                    } else {
+                        mmu.w32(addr, self.reg[rd]);
+                        mmu.w32(addr.wrapping_add(4), self.reg[rd + 1]);
+                    }
+                } else if l == 0 {
                     // store
                     debug_assert!(s == 0 && h == 1);
                     let val = self.reg[rd].wrapping_add(((rd == reg::PC) as u32) * 8);
@@ -547,6 +585,10 @@ impl Cpu {
                             if r == reg::PC && s == 1 {
                                 self.reg[reg::CPSR] = self.reg[reg::SPSR];
                                 self.reg.update_bank();
+                            } else if r == reg::PC {
+                                self.reg[reg::CPSR] =
+                                    cpsr.set_bit(cpsr::T, 1, self.reg[r].get_bit(0));
+                                self.reg[r] &= !1;
                             }
                         };
                         rem -= 1u32 << r;
