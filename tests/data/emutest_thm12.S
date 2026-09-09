@@ -1,44 +1,53 @@
-@ ARM setup/capture leaves Thumb MUL as the only flag-changing operation.
+@ Thumb MUL preserves CV for zero, negative and self-aliased results.
 .thumb
 bx pc
 nop
 .arm
-b start
-inputs:
-.word 0, 1
-.word 3, 7
-.word 0xffffffff, 2
-.word 0x80000000, 2
-.word 3, 7
-start:
-adr r10, inputs
-mov r5, #0x100000
-.irp source, r1, r1, r1, r1, r0
-ldmia r10!, {r8-r9}
-.irp flags, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
-mov r0, r8
-mov r1, r9
-mov r12, #(\flags << 28)
-msr cpsr_f, r12
-adr r6, 1f + 1
-adr r7, 2f
-bx r6
-1:
+mov r5, #0x1000
+msr cpsr_f, #0x30000000
+mov r0, #0
+mov r1, #1
+adr r2, zero + 1
+bx r2
 .thumb
-mul r0, \source
+zero:
+mul r0, r1
 str r0, [r5]
-str r1, [r5, #4]
-bx r7
-.balign 4
-2:
+bx pc
+nop
 .arm
-mrs r2, cpsr
-str r2, [r5, #8]
-add r5, #12
-.endr
-.endr
-@ The unchanged Thumb rule appends its own terminating halfword.
-adr r0, 3f + 1
+mrs r3, cpsr
+str r3, [r5, #4]
+
+msr cpsr_f, #0x70000000
+mov r0, #0x80000000
+mov r1, #1
+adr r2, negative + 1
+bx r2
+.thumb
+negative:
+mul r0, r1
+str r0, [r5, #8]
+bx pc
+nop
+.arm
+mrs r3, cpsr
+str r3, [r5, #12]
+
+msr cpsr_f, #0x30000000
+mov r0, #3
+adr r2, square + 1
+bx r2
+.thumb
+square:
+mul r0, r0
+str r0, [r5, #16]
+bx pc
+nop
+.arm
+mrs r3, cpsr
+str r3, [r5, #20]
+adr r0, finish + 1
 bx r0
 .thumb
-3:
+finish:

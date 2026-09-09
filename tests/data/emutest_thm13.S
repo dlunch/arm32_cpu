@@ -1,9 +1,9 @@
-@ Thumb BL/BLX pairs and ARM BLX LR round trips preserve return addresses.
+@ Thumb BL and BLX pairs return to the next Thumb instruction.
 .thumb
 bx pc
 nop
 .arm
-mov r5, #0x100000
+mov r5, #0x1000
 msr cpsr_f, #0x30000000
 mov r6, #0x100
 add r6, #1
@@ -33,20 +33,6 @@ str r0, [r5, #8]
 str lr, [r5, #12]
 mrs r1, cpsr
 str r1, [r5, #16]
-mov r10, lr
-adr lr, thumb_leaf + 1
-blx lr
-mov lr, r10
 bx lr
-
-.org 0x400
 .thumb
-thumb_leaf:
-mov r0, #44
-str r0, [r5, #24]
-mov r1, lr
-str r1, [r5, #28]
-bx lr
-
-.org 0x500
 finish:

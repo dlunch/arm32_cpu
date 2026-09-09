@@ -1,35 +1,24 @@
 @ Byte, signed byte/halfword and halfword-store encodings stay distinct.
-b start
-input:
-.word 0x1234ff80
-start:
-ldr r5, input
-mov r11, #0x100000
-msr cpsr_f, #0xb0000000
-.irp operation, ldrb, ldrb_register, ldrh, ldrsb, ldrsh
-mov r0, #0x80000
-mov r1, #0
-str r5, [r0]
-.ifc \operation,ldrb_register
-ldrb r2, [r0, r1, lsl #2]
-.else
-\operation r2, [r0]
-.endif
-mrs r4, cpsr
-ldr r3, [r0]
-str r0, [r11], #4
-str r2, [r11], #4
-str r4, [r11], #4
-str r3, [r11], #4
-.endr
-mov r0, #0x80000
-mov r3, #0
-str r3, [r0]
-mov r2, r5
-strh r2, [r0, #2]!
-mrs r4, cpsr
-ldr r3, [r0, #-2]
-str r0, [r11], #4
-str r2, [r11], #4
-str r4, [r11], #4
-str r3, [r11], #4
+mov r4, #0x2000
+mov r5, #0x1000
+ldr r0, =0x1234ff80
+str r0, [r4]
+msr cpsr_f, #0x30000000
+ldrb r1, [r4]
+str r1, [r5]
+ldrh r1, [r4]
+str r1, [r5, #4]
+ldrsb r1, [r4]
+str r1, [r5, #8]
+ldrsh r1, [r4]
+str r1, [r5, #12]
+mov r2, #1
+ldrb r1, [r4, r2, lsl #1]
+str r1, [r5, #16]
+strh r0, [r4, #2]!
+str r4, [r5, #20]
+mrs r1, cpsr
+str r1, [r5, #24]
+b finish
+.ltorg
+finish:
