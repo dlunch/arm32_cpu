@@ -520,6 +520,17 @@ impl Cpu {
 
                     let mask = 1 << cpsr::T;
                     self.reg[reg::CPSR] &= !mask;
+                } else if inst.mask_match(0xf800, 0xf000) && inst2.mask_match(0xd000, 0x9000) {
+                    // B.W T4 encodes I1 and I2 relative to the sign bit.
+                    let s = inst.get_bit(10);
+                    let i1 = 1 ^ inst2.get_bit(13) ^ s;
+                    let i2 = 1 ^ inst2.get_bit(11) ^ s;
+                    let offset = (s << 24)
+                        | (i1 << 23)
+                        | (i2 << 22)
+                        | (inst.extract(0, 10) << 12)
+                        | (offset_lo << 1);
+                    self.reg[reg::PC] = pc.wrapping_add(4).wrapping_add(offset.sign_extend(25));
                 } else {
                     return false;
                 }
@@ -583,6 +594,50 @@ mod test {
 
         assert!(cpu.step(&mut mmu));
         assert_eq!(cpu.reg_get(Mode::User, reg::PC), 0x02);
+    }
+
+    #[test]
+    fn wide_branch_targets() {
+        for &(pc, first, second, target) in &[
+            (0x7f51e, 0xf7b7, 0xbf6f, 0x37400),
+            (0x1e562, 0xf045, 0xbaf1, 0x63b48),
+            (0, 0xf000, 0x9800, 0x800004), // I1 set
+            (0, 0xf000, 0xb000, 0x400004), // I2 set
+        ] {
+            let mut mmu = ExampleMem::new();
+            mmu.w16(pc, first);
+            mmu.w16(pc + 2, second);
+            let mut cpu = Cpu::new();
+            cpu.reg_set(Mode::User, reg::PC, pc);
+            cpu.reg_set(Mode::User, reg::LR, 0x1235);
+            cpu.reg_set(Mode::User, reg::CPSR, 0xb000_0030);
+
+            assert!(cpu.step(&mut mmu));
+            assert_eq!(cpu.reg_get(Mode::User, reg::PC), target);
+            assert_eq!(cpu.reg_get(Mode::User, reg::LR), 0x1235);
+            assert_eq!(cpu.reg_get(Mode::User, reg::CPSR), 0xb000_0030);
+        }
+    }
+
+    #[test]
+    fn unsupported_wide_encodings() {
+        for &(first, second) in &[
+            (0xf000, 0x8000), // B<c>.W T3
+            (0xf3ef, 0x8000), // MRS
+            (0xf380, 0x8800), // MSR
+            (0xf3af, 0x8000), // NOP.W
+            (0xf3bf, 0x8f4f), // DSB
+            (0xf800, 0x9000), // wrong first halfword for B.W
+        ] {
+            let mut mmu = ExampleMem::new();
+            mmu.w16(0, first);
+            mmu.w16(2, second);
+            let mut cpu = Cpu::new();
+            cpu.reg_set(Mode::User, reg::CPSR, 0x30);
+
+            assert!(!cpu.step(&mut mmu));
+            assert_eq!(cpu.mode(), Mode::Undefined);
+        }
     }
 
     macro_rules! emutest {
@@ -658,4 +713,5 @@ mod test {
             (0x1014, 33),
         ]
     );
+    emutest!(emutest_thm14, [(0x200, 42)]);
 }
