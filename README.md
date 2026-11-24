@@ -5,7 +5,7 @@
 An emulator for ARM32 CPUs with ARMv5-era ARM/Thumb support, written in Rust.
 
 This project is a fork of [`armv4t_emu`](https://github.com/daniel5151/armv4t_emu),
-extended to support ARMv5 instructions in addition to ARMv4T.
+extended to support ARMv5 instructions and the Thumb-2 unconditional wide branch (`B.W`).
 
 ## Example
 
