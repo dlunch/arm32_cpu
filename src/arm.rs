@@ -113,7 +113,6 @@ impl Cpu {
                 cond,
                 cflags
             );
-            let inst_type = Instruction::decode(inst);
             trace!("Instruction: {:?}", inst_type);
         }
         #[cfg(feature = "advanced_disasm")]
